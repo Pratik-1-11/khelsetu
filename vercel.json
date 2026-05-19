@@ -15,11 +15,5 @@
   "env": {
     "NODE_ENV": "production"
   },
-  "regions": ["sin1"],
-  "functions": {
-    "src/app/index.js": {
-      "memory": 1024,
-      "maxDuration": 30
-    }
-  }
+  "regions": ["sin1"]
 }
