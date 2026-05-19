@@ -99,12 +99,18 @@ if (env.swagger.enable) {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+const isServerless = process.env.VERCEL;
+
 const startServer = async () => {
   try {
     db.createPool();
     logger.info('PostgreSQL pool initialized');
 
-    ws.initializeWebSocket(server);
+    if (!isServerless) {
+      ws.initializeWebSocket(server);
+    } else {
+      logger.info('WebSocket disabled in serverless mode');
+    }
 
     server.listen(env.port, () => {
       logger.info(`Server running on port ${env.port}`);
@@ -117,6 +123,10 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
+if (!isServerless) {
+  startServer();
+}
 
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
@@ -148,7 +158,5 @@ process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception', { error: error.message, stack: error.stack });
   process.exit(1);
 });
-
-startServer();
 
 export default app;

@@ -4,15 +4,17 @@ import logger from '../../core/logger/index.js';
 
 let pool = null;
 
+const isServerless = process.env.VERCEL;
+
 export const createPool = () => {
   if (pool) return pool;
 
   pool = new Pool({
     connectionString: env.database.url,
-    ssl: env.nodeEnv === 'production' ? { rejectUnauthorized: false } : false,
-    min: env.database.pool.min,
-    max: env.database.pool.max,
-    idleTimeoutMillis: env.database.pool.idleTimeout,
+    ssl: { rejectUnauthorized: false },
+    min: isServerless ? 0 : env.database.pool.min,
+    max: isServerless ? 1 : env.database.pool.max,
+    idleTimeoutMillis: isServerless ? 0 : env.database.pool.idleTimeout,
   });
 
   pool.on('error', (err) => {

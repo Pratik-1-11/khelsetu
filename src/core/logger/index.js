@@ -6,8 +6,10 @@ import fs from 'fs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../../../');
 
+const isServerless = process.env.VERCEL || process.env.NODE_ENV === 'production';
+
 const logDir = path.join(projectRoot, 'logs');
-if (!fs.existsSync(logDir)) {
+if (!isServerless && !fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
@@ -30,11 +32,10 @@ const consoleFormat = winston.format.combine(
   })
 );
 
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: logFormat,
-  defaultMeta: { service: 'khelsetu-backend' },
-  transports: [
+const transports = [];
+
+if (!isServerless) {
+  transports.push(
     new winston.transports.File({
       filename: path.join(logDir, 'error.log'),
       level: 'error',
@@ -46,16 +47,21 @@ const logger = winston.createLogger({
       maxsize: 5242880,
       maxFiles: 5
     })
-  ]
-});
-
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(
-    new winston.transports.Console({
-      format: consoleFormat
-    })
   );
 }
+
+transports.push(
+  new winston.transports.Console({
+    format: isServerless ? logFormat : consoleFormat
+  })
+);
+
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: logFormat,
+  defaultMeta: { service: 'khelsetu-backend' },
+  transports
+});
 
 export const createChildLogger = (service) => {
   return logger.child({ service });
