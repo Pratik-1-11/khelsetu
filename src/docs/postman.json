@@ -1,0 +1,63 @@
+{
+  "info": {
+    "name": "KhelSetu API",
+    "description": "Production-grade sports tournament management API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" }
+  ],
+  "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}" }] },
+  "event": [
+    { "listen": "prerequest", "script": { "exec": ["if (!pm.environment.get('accessToken')) {", "  const register = {", "    email: 'test@example.com',", "    password: 'test123456',", "    first_name: 'Test'", "  };", "  const response = pm.request.send({", "    url: '{{baseUrl}}/api/auth/register',", "    method: 'POST',", "    header: { 'Content-Type': 'application/json' },", "    body: JSON.stringify(register)", "  });", "}"] } } }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        { "name": "Register", "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/register", "body": { "mode": "raw", "raw": "{\"email\":\"test@example.com\",\"password\":\"test123456\",\"first_name\":\"Test\"}" } } },
+        { "name": "Login", "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/login", "body": { "mode": "raw", "raw": "{\"email\":\"test@example.com\",\"password\":\"test123456\"}" } } },
+        { "name": "Me", "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/me" } }
+      ]
+    },
+    {
+      "name": "Organizations",
+      "item": [
+        { "name": "Create", "request": { "method": "POST", "url": "{{baseUrl}}/api/organizations", "body": { "mode": "raw", "raw": "{\"name\":\"Test Org\"}" } } },
+        { "name": "List", "request": { "method": "GET", "url": "{{baseUrl}}/api/organizations" } }
+      ]
+    },
+    {
+      "name": "Tournaments",
+      "item": [
+        { "name": "Create", "request": { "method": "POST", "url": "{{baseUrl}}/api/tournaments", "body": { "mode": "raw", "raw": "{\"organization_id\":\"uuid\",\"sport_id\":\"uuid\",\"name\":\"Test Tournament\"}" } } },
+        { "name": "List", "request": { "method": "GET", "url": "{{baseUrl}}/api/tournaments?organization_id=uuid" } }
+      ]
+    },
+    {
+      "name": "Matches",
+      "item": [
+        { "name": "Get by Tournament", "request": { "method": "GET", "url": "{{baseUrl}}/api/matches/tournament/:tournamentId" } },
+        { "name": "Start", "request": { "method": "POST", "url": "{{baseUrl}}/api/matches/:id/start" } },
+        { "name": "End", "request": { "method": "POST", "url": "{{baseUrl}}/api/matches/:id/end", "body": { "mode": "raw", "raw": "{\"home_score\":2,\"away_score\":1}" } } }
+      ]
+    },
+    {
+      "name": "Scoring",
+      "item": [
+        { "name": "Add Event", "request": { "method": "POST", "url": "{{baseUrl}}/api/scoring/matches/:matchId/events", "body": { "mode": "raw", "raw": "{\"event_type\":\"goal\",\"team_id\":\"uuid\",\"minute\":45}" } } },
+        { "name": "Get History", "request": { "method": "GET", "url": "{{baseUrl}}/api/scoring/matches/:matchId/history" } }
+      ]
+    },
+    {
+      "name": "Public",
+      "item": [
+        { "name": "Tournaments", "request": { "method": "GET", "url": "{{baseUrl}}/api/public/tournaments" } },
+        { "name": "Live Score", "request": { "method": "GET", "url": "{{baseUrl}}/api/public/matches/:id/score" } },
+        { "name": "Standings", "request": { "method": "GET", "url": "{{baseUrl}}/api/public/tournaments/:id/standings" } }
+      ]
+    }
+  ]
+}

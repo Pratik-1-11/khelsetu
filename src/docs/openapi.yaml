@@ -1,0 +1,4205 @@
+openapi: 3.0.3
+info:
+  title: KhelSetu API
+  version: 1.0.0
+  description: >
+    # KhelSetu API Documentation
+
+
+    ## Platform Overview
+
+
+    KhelSetu is a multi-tenant sports tournament management platform with **two
+    distinct portals**:
+
+
+    ### 🌐 Public Portal (No Login Required)
+
+    The public portal is for **viewers and fans** who want to watch live
+    matches, browse tournaments, and view standings. These endpoints are
+    **completely open** — no authentication needed.
+
+
+    - **Live match scores** — Real-time scores for any match
+
+    - **Tournament browsing** — View all public tournaments
+
+    - **Standings & fixtures** — League tables and match schedules
+
+    - **Team & player profiles** — Roster and player information
+
+    - **Global search** — Search across tournaments, teams, and players
+
+
+    ### 🔒 SaaS Dashboard (Login Required)
+
+    The dashboard is for **organization members** (admins, scorers, coaches) who
+    manage tournaments, teams, players, and live scoring. **All dashboard
+    endpoints require JWT authentication** and **organization membership**.
+
+
+    - **Organization management** — Create/manage organizations, invite members
+
+    - **Tournament management** — Create tournaments, generate fixtures
+
+    - **Team & player management** — Roster management, player profiles
+
+    - **Live scoring** — Real-time event-driven scoring (Football, Cricket,
+    Basketball)
+
+    - **Standings** — Auto-calculated league tables
+
+    - **RBAC** — Role-based access control (owner, admin, scorer, coach, viewer)
+
+    - **Billing** — Subscription and payment management
+
+    - **Analytics & Audit** — Usage analytics and audit logs
+
+
+    ### 🔑 Authentication Flow
+
+
+    1. **Register** → `POST /api/auth/register` (dashboard user) or `POST
+    /api/public/users/register` (public user)
+
+    2. **Login** → `POST /api/auth/login` → Returns JWT access token (15min) +
+    refresh token (7d)
+
+    3. **Use Token** → Pass as `Authorization: Bearer <token>` header for all
+    dashboard endpoints
+
+    4. **Refresh** → `POST /api/auth/refresh` → Get new access token when
+    expired
+
+
+    ### 🏢 Multi-Tenant Architecture
+
+
+    Every organization (tenant) is **isolated**. A user must be a **member of an
+    organization** to access its resources.
+
+
+    - **Tenant Resolution**: Pass `x-organization-id` header, or include
+    `organization_id` in request body/query
+
+    - **Access Control**: If you're not a member of the organization → `403
+    Forbidden`
+
+    - **Staff Roles**: Tenant admin assigns roles (admin, tournament_admin,
+    scorer, coach, viewer) with specific permissions
+
+
+    ### 🆓 Free Tier Limits
+
+
+    | Resource | Free | Starter | Professional | Enterprise |
+
+    |----------|------|---------|--------------|------------|
+
+    | Tournaments per org | 5 | 20 | 100 | Unlimited |
+
+    | Teams per org | 10 | 50 | 200 | Unlimited |
+
+    | Players per org | 50 | 200 | 1000 | Unlimited |
+
+    | Matches per org | 100 | 500 | 2000 | Unlimited |
+
+
+    **Public users** get **5 free matches** lifetime. On first match, a personal
+    organization is auto-created.
+
+
+    ---
+
+
+    ## API Sections
+
+
+    | Section | Auth Required | Description |
+
+    |---------|--------------|-------------|
+
+    | **Public Portal** | No | Live scores, tournament browsing, standings,
+    search |
+
+    | **Authentication** | No | Register, login, refresh tokens |
+
+    | **Dashboard: Organizations** | Yes | Org CRUD, members, invitations |
+
+    | **Dashboard: Tournaments** | Yes | Tournament CRUD, fixtures, progression
+    |
+
+    | **Dashboard: Teams & Players** | Yes | Team/player management |
+
+    | **Dashboard: Matches** | Yes | Match lifecycle, officials |
+
+    | **Dashboard: Scoring** | Yes | Live scoring (Football, Cricket,
+    Basketball) |
+
+    | **Dashboard: Standings** | Yes | League tables, snapshots |
+
+    | **Dashboard: RBAC** | Yes | Roles, permissions, staff management |
+
+    | **Dashboard: Billing** | Yes | Plans, subscriptions, invoices |
+
+    | **Dashboard: Analytics & Audit** | Yes | Usage analytics, audit logs |
+
+    | **Dashboard: Overlays & Visualization** | Yes | Broadcast overlays,
+    tactical boards |
+
+    | **Dashboard: Sync** | Yes | Offline sync queue |
+  contact:
+    name: KhelSetu Support
+    email: support@khelsetu.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+paths:
+  /api/auth/register:
+    post:
+      summary: Register new user
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - first_name
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                phone:
+                  type: string
+            example:
+              email: user@example.com
+              password: securePassword123
+              first_name: John
+              last_name: Doe
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+  /api/auth/login:
+    post:
+      summary: Login user
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+            example:
+              email: user@example.com
+              password: securePassword123
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+  /api/auth/refresh:
+    post:
+      summary: Refresh access token
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: Tokens refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+  /api/auth/logout:
+    post:
+      summary: Logout user
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logged out successfully
+  /api/auth/navigation:
+    get:
+      summary: Get role-based navigation config
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Navigation config with permissions and feature flags
+  /api/auth/me:
+    get:
+      summary: Get current user profile
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+  /api/auth/profile:
+    put:
+      summary: Update user profile
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                phone:
+                  type: string
+                avatar:
+                  type: string
+      responses:
+        "200":
+          description: Profile updated
+  /api/auth/change-password:
+    post:
+      summary: Change password
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - current_password
+                - new_password
+              properties:
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+                  minLength: 8
+      responses:
+        "200":
+          description: Password changed successfully
+  /api/organizations:
+    post:
+      summary: Create new organization
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                description:
+                  type: string
+            example:
+              name: Nepal Sports Federation
+              slug: nsf
+              description: National sports organization
+      responses:
+        "201":
+          description: Organization created
+    get:
+      summary: Get user organizations
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of organizations
+  /api/organizations/{id}:
+    get:
+      summary: Get organization by ID
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Organization details
+    put:
+      summary: Update organization
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Organization updated
+    delete:
+      summary: Delete organization
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Organization deleted
+  /api/organizations/{id}/members:
+    get:
+      summary: Get organization members
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of members
+  /api/organizations/{id}/invitations:
+    post:
+      summary: Invite user to organization
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                role:
+                  type: string
+      responses:
+        "201":
+          description: Invitation sent
+  /api/organizations/{id}/members/{userId}:
+    delete:
+      summary: Remove member
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Member removed
+  /api/organizations/invitations/{token}/accept:
+    post:
+      summary: Accept invitation
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Invitation accepted
+  /api/sports:
+    get:
+      summary: Get all sports
+      tags:
+        - Sports
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: include_inactive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of sports
+    post:
+      summary: Create new sport
+      tags:
+        - Sports
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+                icon:
+                  type: string
+                rules:
+                  type: object
+                scoring_config:
+                  type: object
+      responses:
+        "201":
+          description: Sport created
+  /api/sports/{id}:
+    get:
+      summary: Get sport by ID
+      tags:
+        - Sports
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sport details
+    put:
+      summary: Update sport
+      tags:
+        - Sports
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Sport updated
+    delete:
+      summary: Delete sport
+      tags:
+        - Sports
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Sport deleted
+  /api/tournaments:
+    post:
+      summary: Create new tournament
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organization_id
+                - sport_id
+                - name
+              properties:
+                organization_id:
+                  type: string
+                sport_id:
+                  type: string
+                name:
+                  type: string
+                format:
+                  type: string
+      responses:
+        "201":
+          description: Tournament created
+    get:
+      summary: Get tournaments by organization
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of tournaments
+  /api/tournaments/{id}:
+    get:
+      summary: Get tournament by ID
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Tournament details
+    put:
+      summary: Update tournament
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Tournament updated
+    delete:
+      summary: Delete tournament
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Tournament deleted
+  /api/tournaments/{id}/status:
+    post:
+      summary: Update tournament status
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Status updated
+  /api/tournaments/{id}/teams:
+    get:
+      summary: Get registered teams
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of registered teams
+    post:
+      summary: Register team to tournament
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Team registered
+  /api/tournaments/{id}/teams/{teamId}:
+    delete:
+      summary: Withdraw team from tournament
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Team withdrawn
+  /api/tournaments/{id}/fixtures:
+    post:
+      summary: Generate fixtures
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Fixtures generated
+    get:
+      summary: Get tournament fixtures
+      tags:
+        - Tournaments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of fixtures
+  /api/teams:
+    post:
+      summary: Create new team
+      tags:
+        - Teams
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organization_id
+                - name
+              properties:
+                organization_id:
+                  type: string
+                name:
+                  type: string
+                slug:
+                  type: string
+                description:
+                  type: string
+                home_venue:
+                  type: string
+      responses:
+        "201":
+          description: Team created
+    get:
+      summary: Get teams by organization
+      tags:
+        - Teams
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of teams
+  /api/teams/{id}:
+    get:
+      summary: Get team by ID
+      tags:
+        - Teams
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Team details
+    put:
+      summary: Update team
+      tags:
+        - Teams
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Team updated
+    delete:
+      summary: Delete team
+      tags:
+        - Teams
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Team deleted
+  /api/teams/{id}/players:
+    get:
+      summary: Get team players
+      tags:
+        - Teams
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of players
+  /api/players:
+    post:
+      summary: Create new player
+      tags:
+        - Players
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organization_id
+                - first_name
+              properties:
+                organization_id:
+                  type: string
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                email:
+                  type: string
+                phone:
+                  type: string
+                jersey_number:
+                  type: integer
+                position:
+                  type: string
+      responses:
+        "201":
+          description: Player created
+    get:
+      summary: Get players by organization
+      tags:
+        - Players
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: team_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of players
+  /api/players/{id}:
+    get:
+      summary: Get player by ID
+      tags:
+        - Players
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Player details
+    put:
+      summary: Update player
+      tags:
+        - Players
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Player updated
+    delete:
+      summary: Delete player
+      tags:
+        - Players
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Player deleted
+  /api/players/{id}/teams:
+    post:
+      summary: Add player to team
+      tags:
+        - Players
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Player added to team
+    get:
+      summary: Get player teams
+      tags:
+        - Players
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of teams
+  /api/players/{id}/teams/{teamId}:
+    delete:
+      summary: Remove player from team
+      tags:
+        - Players
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Player removed from team
+  /api/matches:
+    post:
+      summary: Create new match
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tournament_id
+                - home_team_id
+                - away_team_id
+              properties:
+                tournament_id:
+                  type: string
+                home_team_id:
+                  type: string
+                away_team_id:
+                  type: string
+                round_number:
+                  type: integer
+                group_name:
+                  type: string
+                venue:
+                  type: string
+                scheduled_at:
+                  type: string
+      responses:
+        "201":
+          description: Match created
+  /api/matches/tournament/{tournamentId}:
+    get:
+      summary: Get matches by tournament
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of matches
+  /api/matches/{id}:
+    get:
+      summary: Get match by ID
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Match details
+    put:
+      summary: Update match
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Match updated
+    delete:
+      summary: Delete match
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Match deleted
+  /api/matches/{id}/start:
+    post:
+      summary: Start match
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Match started
+  /api/matches/{id}/end:
+    post:
+      summary: End match
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Match ended
+  /api/matches/{id}/score:
+    post:
+      summary: Update match score
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Score updated
+  /api/matches/{id}/officials:
+    post:
+      summary: Add match official
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Official added
+    get:
+      summary: Get match officials
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of officials
+  /api/matches/{id}/officials/{userId}:
+    delete:
+      summary: Remove match official
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Official removed
+  /api/matches/{id}/with-period:
+    get:
+      summary: Get match with period info
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Match with current period and substitution status
+  /api/matches/{id}/period/transition:
+    post:
+      summary: Transition match period
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                    - start_first_half
+                    - end_first_half
+                    - start_second_half
+                    - end_second_half
+                    - start_extra_time
+                    - end_extra_time_first
+                    - start_extra_time_second
+                    - end_extra_time
+                    - start_penalties
+                    - end_match
+                    - abandon
+                    - suspend
+                    - resume
+                injury_time:
+                  type: integer
+                winner_id:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Period transitioned
+  /api/matches/{id}/abandon:
+    post:
+      summary: Abandon match
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Match abandoned
+  /api/matches/{id}/suspend:
+    post:
+      summary: Suspend match
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Match suspended
+  /api/matches/{id}/resume:
+    post:
+      summary: Resume suspended match
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Match resumed
+  /api/matches/{id}/postpone:
+    post:
+      summary: Postpone match
+      tags:
+        - Matches
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - new_date
+                - reason
+              properties:
+                new_date:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Match postponed
+  /api/scoring/matches/{matchId}/innings/start:
+    post:
+      summary: Start innings
+      tags:
+        - Cricket Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - innings_number
+                - batting_team_id
+                - bowling_team_id
+              properties:
+                innings_number:
+                  type: integer
+                batting_team_id:
+                  type: string
+                bowling_team_id:
+                  type: string
+      responses:
+        "201":
+          description: Innings started
+  /api/scoring/matches/{matchId}/deliveries:
+    post:
+      summary: Add cricket delivery
+      tags:
+        - Cricket Scoring
+      security:
+        - bearerAuth: []
+      description: Add a ball-by-ball delivery event. This is the core of event-driven
+        cricket scoring.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - delivery_type
+                - bowler_id
+                - striker_id
+                - non_striker_id
+              properties:
+                delivery_type:
+                  type: string
+                  enum:
+                    - legal
+                    - no_ball
+                    - wide
+                bowler_id:
+                  type: string
+                striker_id:
+                  type: string
+                non_striker_id:
+                  type: string
+                batter_runs:
+                  type: integer
+                extra_runs:
+                  type: integer
+                overthrow_runs:
+                  type: integer
+                bye_runs:
+                  type: integer
+                leg_bye_runs:
+                  type: integer
+                penalty_runs:
+                  type: integer
+                is_bye:
+                  type: boolean
+                is_leg_bye:
+                  type: boolean
+                is_free_hit:
+                  type: boolean
+                is_overthrow:
+                  type: boolean
+                is_boundary:
+                  type: boolean
+                wicket:
+                  type: boolean
+                wicket_type:
+                  type: string
+                fielder_id:
+                  type: string
+                striker_end:
+                  type: string
+                  enum:
+                    - pitch
+                    - non_pitch
+                client_event_id:
+                  type: string
+            example:
+              delivery_type: legal
+              bowler_id: uuid-1
+              striker_id: uuid-2
+              non_striker_id: uuid-3
+              batter_runs: 4
+              is_boundary: true
+              striker_end: pitch
+      responses:
+        "201":
+          description: Delivery added
+  /api/scoring/matches/{matchId}/deliveries/{deliveryId}/undo:
+    post:
+      summary: Undo delivery
+      tags:
+        - Cricket Scoring
+      security:
+        - bearerAuth: []
+      description: Reverse a delivery event. All statistics are recalculated.
+      responses:
+        "200":
+          description: Delivery undone
+  /api/scoring/matches/{matchId}/innings/{inningsNumber}:
+    get:
+      summary: Get innings statistics
+      tags:
+        - Cricket Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Innings stats with batters, bowlers, partnerships
+  /api/scoring/matches/{matchId}/replay/test:
+    get:
+      summary: Test deterministic replay
+      tags:
+        - Cricket Scoring
+      security:
+        - bearerAuth: []
+      description: Verify that replaying all deliveries produces same result as live scoring
+      responses:
+        "200":
+          description: Replay test results
+  /api/scoring/matches/{matchId}/history:
+    get:
+      summary: Get match scoring history
+      tags:
+        - Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Match history with events
+  /api/scoring/matches/{matchId}/super-over/start:
+    post:
+      summary: Start super over
+      tags:
+        - Cricket Super Over
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team1_id
+                - team2_id
+              properties:
+                team1_id:
+                  type: string
+                  format: uuid
+                team2_id:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Super over started
+  /api/scoring/matches/{matchId}/super-over/deliveries:
+    post:
+      summary: Add super over delivery
+      tags:
+        - Cricket Super Over
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - super_over_id
+                - batting_team_id
+                - delivery_type
+                - bowler_id
+                - striker_id
+                - non_striker_id
+              properties:
+                super_over_id:
+                  type: string
+                  format: uuid
+                batting_team_id:
+                  type: string
+                  format: uuid
+                delivery_type:
+                  type: string
+                  enum:
+                    - legal
+                    - no_ball
+                    - wide
+                bowler_id:
+                  type: string
+                  format: uuid
+                striker_id:
+                  type: string
+                  format: uuid
+                non_striker_id:
+                  type: string
+                  format: uuid
+                batter_runs:
+                  type: integer
+      responses:
+        "201":
+          description: Super over delivery added
+  /api/scoring/matches/{matchId}/super-over/complete:
+    post:
+      summary: Complete super over
+      tags:
+        - Cricket Super Over
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Super over completed
+  /api/scoring/matches/{matchId}/reviews/initialize:
+    post:
+      summary: Initialize DRS review system
+      tags:
+        - Cricket DRS
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                max_reviews_per_innings:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+      responses:
+        "201":
+          description: DRS initialized
+  /api/scoring/matches/{matchId}/reviews/request:
+    post:
+      summary: Request DRS review
+      tags:
+        - Cricket DRS
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - innings_number
+                - review_type
+                - decision_original
+                - batter_id
+                - bowler_id
+                - ball_sequence_number
+                - over_number
+                - ball_in_over
+              properties:
+                team_id:
+                  type: string
+                  format: uuid
+                innings_number:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                review_type:
+                  type: string
+                  enum:
+                    - lbw
+                    - caught
+                    - caught_behind
+                    - stumped
+                    - bowled
+                    - run_out
+                    - not_out
+                decision_original:
+                  type: string
+                  enum:
+                    - not_out
+                    - out
+                batter_id:
+                  type: string
+                  format: uuid
+                bowler_id:
+                  type: string
+                  format: uuid
+                ball_sequence_number:
+                  type: integer
+                  minimum: 1
+                over_number:
+                  type: integer
+                  minimum: 1
+                ball_in_over:
+                  type: integer
+                  minimum: 1
+                  maximum: 6
+      responses:
+        "201":
+          description: Review requested
+  /api/scoring/matches/{matchId}/reviews/{reviewId}/decide:
+    put:
+      summary: Decide DRS review
+      tags:
+        - Cricket DRS
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - decision
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - not_out
+                    - out
+                    - withdrawn
+      responses:
+        "200":
+          description: Review decided
+  /api/scoring/matches/{matchId}/reviews:
+    get:
+      summary: Get DRS review status
+      tags:
+        - Cricket DRS
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Review status and config
+  /api/scoring/matches/{matchId}/follow-on/check:
+    get:
+      summary: Check follow-on eligibility
+      tags:
+        - Cricket Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Follow-on recommendation
+  /api/scoring/matches/{matchId}/analytics:
+    get:
+      summary: Get match analytics
+      tags:
+        - Cricket Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: innings
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+      responses:
+        "200":
+          description: Match analytics data
+  /api/scoring/matches/{matchId}/football/lineup:
+    post:
+      summary: Set match lineup
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - players
+              properties:
+                team_id:
+                  type: string
+                players:
+                  type: array
+                  items:
+                    type: object
+                bench:
+                  type: array
+      responses:
+        "201":
+          description: Lineup saved
+  /api/scoring/matches/{matchId}/football/substitutions:
+    post:
+      summary: Perform substitution
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - player_in_id
+                - player_out_id
+                - minute
+              properties:
+                team_id:
+                  type: string
+                player_in_id:
+                  type: string
+                player_out_id:
+                  type: string
+                minute:
+                  type: integer
+                reason:
+                  type: string
+                  enum:
+                    - tactical
+                    - injury
+                    - red_card
+                    - other
+      responses:
+        "201":
+          description: Substitution performed
+    get:
+      summary: Get match substitutions
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of substitutions
+  /api/scoring/matches/{matchId}/football/substitutions/{teamId}/status:
+    get:
+      summary: Get team substitution status
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Team substitution status
+  /api/scoring/matches/{matchId}/football/period/start:
+    post:
+      summary: Start match period
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - period
+              properties:
+                period:
+                  type: string
+                  enum:
+                    - first_half
+                    - second_half
+                    - extra_time_first
+                    - penalties
+      responses:
+        "200":
+          description: Period started
+  /api/scoring/matches/{matchId}/football/period/end:
+    post:
+      summary: End current period
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                injury_time:
+                  type: integer
+      responses:
+        "200":
+          description: Period ended
+  /api/scoring/matches/{matchId}/football/period/current:
+    get:
+      summary: Get current match period
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current period details
+  /api/scoring/matches/{matchId}/football/periods:
+    get:
+      summary: Get all match periods
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of all periods
+  /api/scoring/matches/{matchId}/football/period/injury-time:
+    patch:
+      summary: Update injury time
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - minutes
+              properties:
+                minutes:
+                  type: integer
+                  minimum: 0
+                  maximum: 15
+      responses:
+        "200":
+          description: Injury time updated
+  /api/scoring/matches/{matchId}/football/verify-replay:
+    post:
+      summary: Verify deterministic replay
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Replay verification result
+  /api/scoring/matches/{matchId}/football/match/end:
+    post:
+      summary: End match
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                winner_id:
+                  type: string
+      responses:
+        "200":
+          description: Match ended
+  /api/scoring/matches/{matchId}/football/var/initiate:
+    post:
+      summary: Initiate VAR review
+      tags:
+        - Football VAR
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - review_type
+                - original_event_id
+                - original_decision
+              properties:
+                review_type:
+                  type: string
+                  enum:
+                    - goal
+                    - penalty
+                    - red_card
+                    - goal_denial
+                    - other
+                original_event_id:
+                  type: string
+                original_decision:
+                  type: string
+      responses:
+        "201":
+          description: VAR review initiated
+  /api/scoring/matches/{matchId}/football/var/{reviewId}/status:
+    patch:
+      summary: Update VAR review status
+      tags:
+        - Football VAR
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - check_initiated
+                    - in_progress
+                    - decision_pending
+                    - completed
+      responses:
+        "200":
+          description: VAR status updated
+  /api/scoring/matches/{matchId}/football/var/:reviewId/decision:
+    post:
+      summary: Make VAR decision
+      tags:
+        - Football VAR
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - decision
+                - reason
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - confirmed
+                    - overturned
+                    - changed_to_penalty
+                    - changed_to_free_kick
+                    - no_goal
+                    - no_penalty
+                    - no_red_card
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: VAR decision made
+  /api/scoring/matches/{matchId}/football/var/stats:
+    get:
+      summary: Get VAR review statistics
+      tags:
+        - Football VAR
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: VAR statistics
+  /api/scoring/matches/{matchId}/football/var:
+    get:
+      summary: Get VAR reviews
+      tags:
+        - Football VAR
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of VAR reviews
+  /api/scoring/matches/{matchId}/football/penalties/initialize:
+    post:
+      summary: Initialize penalty shootout
+      tags:
+        - Football Penalty Shootout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - home_kickers
+                - away_kickers
+              properties:
+                home_kickers:
+                  type: array
+                  items:
+                    type: string
+                away_kickers:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: Penalty shootout initialized
+  /api/scoring/matches/{matchId}/football/penalties/start:
+    post:
+      summary: Start penalty shootout
+      tags:
+        - Football Penalty Shootout
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Penalty shootout started
+  /api/scoring/matches/{matchId}/football/penalties/kick:
+    post:
+      summary: Record penalty kick
+      tags:
+        - Football Penalty Shootout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - kicker_player_id
+                - result
+              properties:
+                team_id:
+                  type: string
+                kicker_player_id:
+                  type: string
+                goalkeeper_player_id:
+                  type: string
+                result:
+                  type: string
+                  enum:
+                    - scored
+                    - missed
+                    - saved
+                    - post
+                    - blocked
+                    - neutral_miss
+      responses:
+        "200":
+          description: Kick recorded
+  /api/scoring/matches/{matchId}/football/penalties/kicks:
+    get:
+      summary: Get all penalty kicks
+      tags:
+        - Football Penalty Shootout
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of penalty kicks
+  /api/scoring/matches/{matchId}/football/penalties/next-kicker:
+    get:
+      summary: Get next kicker
+      tags:
+        - Football Penalty Shootout
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Next kicker details
+  /api/scoring/matches/{matchId}/football/penalties/abandon:
+    post:
+      summary: Abandon penalty shootout
+      tags:
+        - Football Penalty Shootout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Penalty shootout abandoned
+  /api/scoring/matches/{matchId}/football/penalties/status:
+    get:
+      summary: Get penalty shootout status
+      tags:
+        - Football Penalty Shootout
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Shootout status
+  /api/scoring/matches/{matchId}/football/events/{eventId}/undo:
+    post:
+      summary: Undo scoring event
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                justification:
+                  type: string
+      responses:
+        "200":
+          description: Event undone
+  /api/scoring/matches/{matchId}/football/corrections:
+    get:
+      summary: Get event corrections
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of corrections
+  /api/scoring/matches/{matchId}/football/events/{eventId}/correct:
+    post:
+      summary: Correct scoring event
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                player_id:
+                  type: string
+                team_id:
+                  type: string
+                minute:
+                  type: integer
+                metadata:
+                  type: object
+                reason:
+                  type: string
+                justification:
+                  type: string
+      responses:
+        "200":
+          description: Event corrected
+  /api/scoring/matches/{matchId}/football/eligibility/initialize:
+    post:
+      summary: Initialize match eligibility
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Eligibility initialized
+  /api/scoring/matches/{matchId}/football/eligibility/lineup:
+    post:
+      summary: Set team lineup for eligibility
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - lineup
+              properties:
+                team_id:
+                  type: string
+                lineup:
+                  type: array
+                  items:
+                    type: object
+                bench:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        "201":
+          description: Lineup set for eligibility
+  /api/scoring/matches/{matchId}/football/eligibility/team/{teamId}:
+    get:
+      summary: Get team eligibility
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Team eligibility details
+  /api/scoring/matches/{matchId}/football/eligibility/player/{playerId}:
+    get:
+      summary: Get player eligibility
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Player eligibility details
+  /api/scoring/matches/{matchId}/football/eligibility:
+    get:
+      summary: Get player eligibility
+      tags:
+        - Football Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Player eligibility list
+  /api/scoring/matches/{matchId}/events:
+    post:
+      summary: Add scoring event
+      tags:
+        - Scoring
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event_type
+              properties:
+                event_type:
+                  type: string
+                  description: goal, penalty, yellow_card, red_card, etc.
+                team_id:
+                  type: string
+                player_id:
+                  type: string
+                minute:
+                  type: integer
+                client_event_id:
+                  type: string
+                  description: For idempotency
+                metadata:
+                  type: object
+      responses:
+        "201":
+          description: Event added
+    get:
+      summary: Get match events
+      tags:
+        - Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of events
+  /api/scoring/events/{eventId}/undo:
+    post:
+      summary: Undo scoring event
+      tags:
+        - Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Event undone
+  /api/scoring/matches/{matchId}/snapshot:
+    get:
+      summary: Get score snapshot
+      tags:
+        - Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current score snapshot
+  /api/scoring/snapshots/{snapshotId}/replay:
+    post:
+      summary: Replay score from snapshot
+      tags:
+        - Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Score replayed
+  /api/scoring/validate:
+    post:
+      summary: Validate idempotency
+      tags:
+        - Scoring
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Idempotency check result
+  /api/matches/{matchId}/basketball/initialize:
+    post:
+      summary: Initialize basketball match
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Match initialized
+  /api/matches/{matchId}/basketball/field-goal:
+    post:
+      summary: Record field goal (2pt or 3pt)
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - player_id
+              properties:
+                team_id:
+                  type: string
+                  description: Scoring team ID
+                player_id:
+                  type: string
+                  description: Scoring player ID
+                is_three_pointer:
+                  type: boolean
+                  default: false
+                shot_type:
+                  type: string
+                  enum:
+                    - layup
+                    - dunk
+                    - jump_shot
+                    - hook
+                    - fadeaway
+                zone:
+                  type: string
+                  description: Shot zone
+                distance:
+                  type: number
+                  description: Shot distance in feet
+                is_and_one:
+                  type: boolean
+                  description: And-one situation
+                is_shooting_foul:
+                  type: boolean
+                  description: Fouled on shot
+                fouling_team_id:
+                  type: string
+                  description: Team that fouled
+                fouled_player_id:
+                  type: string
+                  description: Player who was fouled
+      responses:
+        "201":
+          description: Field goal recorded
+  /api/matches/{matchId}/basketball/free-throw:
+    post:
+      summary: Record free throw result
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - player_id
+                - made
+                - sequence_id
+              properties:
+                team_id:
+                  type: string
+                player_id:
+                  type: string
+                made:
+                  type: boolean
+                  description: Whether free throw was made
+                sequence_id:
+                  type: string
+                  description: Free throw sequence ID
+      responses:
+        "201":
+          description: Free throw recorded
+  /api/matches/{matchId}/basketball/rebound:
+    post:
+      summary: Record rebound
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - player_id
+                - rebound_type
+              properties:
+                team_id:
+                  type: string
+                player_id:
+                  type: string
+                rebound_type:
+                  type: string
+                  enum:
+                    - offensive
+                    - defensive
+      responses:
+        "201":
+          description: Rebound recorded
+  /api/matches/{matchId}/basketball/assist:
+    post:
+      summary: Record assist
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - player_id
+                - assisted_player_id
+              properties:
+                team_id:
+                  type: string
+                player_id:
+                  type: string
+                  description: Player who assisted
+                assisted_player_id:
+                  type: string
+                  description: Player who scored
+      responses:
+        "201":
+          description: Assist recorded
+  /api/matches/{matchId}/basketball/steal:
+    post:
+      summary: Record steal
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - player_id
+                - stolen_from_player_id
+                - stolen_from_team_id
+              properties:
+                team_id:
+                  type: string
+                player_id:
+                  type: string
+                stolen_from_player_id:
+                  type: string
+                stolen_from_team_id:
+                  type: string
+      responses:
+        "201":
+          description: Steal recorded
+  /api/matches/{matchId}/basketball/turnover:
+    post:
+      summary: Record turnover
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - player_id
+              properties:
+                team_id:
+                  type: string
+                player_id:
+                  type: string
+                turnover_type:
+                  type: string
+                  enum:
+                    - traveling
+                    - double_dribble
+                    - lost_ball
+                    - out_of_bounds
+                    - violation
+                    - shot_clock
+      responses:
+        "201":
+          description: Turnover recorded
+  /api/matches/{matchId}/basketball/block:
+    post:
+      summary: Record block
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - player_id
+                - blocked_player_id
+              properties:
+                team_id:
+                  type: string
+                player_id:
+                  type: string
+                blocked_player_id:
+                  type: string
+      responses:
+        "201":
+          description: Block recorded
+  /api/matches/{matchId}/basketball/foul:
+    post:
+      summary: Record foul
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+                - player_id
+                - foul_type
+              properties:
+                team_id:
+                  type: string
+                  description: Team committing foul
+                player_id:
+                  type: string
+                  description: Player committing foul
+                foul_type:
+                  type: string
+                  enum:
+                    - personal
+                    - shooting
+                    - offensive
+                    - technical
+                    - flagrant_1
+                    - flagrant_2
+                fouled_player_id:
+                  type: string
+                  description: Player fouled (for shooting fouls)
+                fouled_team_id:
+                  type: string
+                  description: Team that was fouled
+                is_shooting_foul:
+                  type: boolean
+                  default: false
+                shot_type:
+                  type: string
+                  enum:
+                    - two_point
+                    - three_point
+      responses:
+        "201":
+          description: Foul recorded
+  /api/matches/{matchId}/basketball/timeout:
+    post:
+      summary: Call timeout
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - team_id
+              properties:
+                team_id:
+                  type: string
+                timeout_type:
+                  type: string
+                  enum:
+                    - full
+                    - short
+                  default: full
+      responses:
+        "201":
+          description: Timeout called
+  /api/matches/{matchId}/basketball/period/start:
+    post:
+      summary: Start period (quarter/overtime)
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - period_number
+              properties:
+                period_number:
+                  type: integer
+                  minimum: 1
+                  maximum: 7
+                  description: 1-4 for quarters, 5+ for overtime
+      responses:
+        "200":
+          description: Period started
+  /api/matches/{matchId}/basketball/period/end:
+    post:
+      summary: End period
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                period_number:
+                  type: integer
+                injury_time:
+                  type: integer
+                  default: 0
+      responses:
+        "200":
+          description: Period ended
+  /api/matches/{matchId}/basketball/overtime/start:
+    post:
+      summary: Start overtime
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - overtime_number
+              properties:
+                overtime_number:
+                  type: integer
+                  minimum: 1
+      responses:
+        "200":
+          description: Overtime started
+  /api/matches/{matchId}/basketball/end:
+    post:
+      summary: End basketball match
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                winner_id:
+                  type: string
+                  description: Winning team ID
+      responses:
+        "200":
+          description: Match ended
+  /api/matches/{matchId}/basketball/state:
+    get:
+      summary: Get game state
+      description: Get current basketball game state including possession, fouls,
+        stats, periods
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Game state object
+  /api/matches/{matchId}/basketball/stats:
+    get:
+      summary: Get match statistics
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Player and team statistics
+  /api/matches/{matchId}/basketball/fouls/{teamId}:
+    get:
+      summary: Get team fouls
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: teamId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Team foul count and bonus status
+  /api/matches/{matchId}/basketball/clock/game:
+    post:
+      summary: Update game clock
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - clock_seconds
+              properties:
+                clock_seconds:
+                  type: integer
+                  minimum: 0
+                  maximum: 720
+                  description: Game clock in seconds
+      responses:
+        "200":
+          description: Game clock updated
+  /api/matches/{matchId}/basketball/clock/shot:
+    post:
+      summary: Set shot clock
+      tags:
+        - Basketball Scoring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - seconds
+              properties:
+                seconds:
+                  type: integer
+                  minimum: 0
+                  maximum: 24
+                  description: Shot clock in seconds
+      responses:
+        "200":
+          description: Shot clock set
+  /api/sync/queue:
+    post:
+      summary: Queue operation for sync
+      tags:
+        - Sync
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - operation
+                - entity_type
+                - payload
+              properties:
+                operation:
+                  type: string
+                  enum:
+                    - create
+                    - update
+                    - delete
+                entity_type:
+                  type: string
+                payload:
+                  type: object
+                client_event_id:
+                  type: string
+                idempotency_key:
+                  type: string
+                device_id:
+                  type: string
+      responses:
+        "201":
+          description: Operation queued
+  /api/sync/process:
+    post:
+      summary: Process pending sync items
+      tags:
+        - Sync
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Queue processed
+  /api/sync/status:
+    get:
+      summary: Get sync status
+      tags:
+        - Sync
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Sync status
+  /api/sync/conflicts/{syncItemId}/resolve:
+    post:
+      summary: Resolve sync conflict
+      tags:
+        - Sync
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Conflict resolved
+  /api/sync/device/register:
+    post:
+      summary: Register device
+      tags:
+        - Sync
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Device registered
+  /api/sync/device:
+    get:
+      summary: Get device info
+      tags:
+        - Sync
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Device info
+  /api/standings/tournament/{tournamentId}:
+    get:
+      summary: Get tournament standings
+      tags:
+        - Standings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_name
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Standings list
+  /api/standings/tournament/{tournamentId}/recalculate:
+    post:
+      summary: Recalculate standings
+      tags:
+        - Standings
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Recalculated standings
+  /api/standings/tournament/{tournamentId}/snapshot:
+    post:
+      summary: Create standings snapshot
+      tags:
+        - Standings
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Snapshot created
+  /api/standings/tournament/{tournamentId}/snapshots:
+    get:
+      summary: Get standings history
+      tags:
+        - Standings
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of snapshots
+  /api/notifications:
+    get:
+      summary: Get user notifications
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: unread
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of notifications
+  /api/notifications/unread-count:
+    get:
+      summary: Get unread notification count
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Unread count
+  /api/notifications/read-all:
+    post:
+      summary: Mark all as read
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All marked as read
+  /api/notifications/{id}/read:
+    post:
+      summary: Mark notification as read
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Notification marked as read
+  /api/notifications/{id}:
+    delete:
+      summary: Delete notification
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Notification deleted
+  /api/overlays/templates:
+    post:
+      summary: Create overlay template
+      tags:
+        - Overlays
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Template created
+    get:
+      summary: Get overlay templates
+      tags:
+        - Overlays
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of templates
+  /api/overlays:
+    post:
+      summary: Create live overlay
+      tags:
+        - Overlays
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Overlay created
+    get:
+      summary: Get live overlays
+      tags:
+        - Overlays
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of overlays
+  /api/overlays/{id}/activate:
+    post:
+      summary: Activate overlay
+      tags:
+        - Overlays
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Overlay activated
+  /api/overlays/{id}/deactivate:
+    post:
+      summary: Deactivate overlay
+      tags:
+        - Overlays
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Overlay deactivated
+  /api/overlays/public/{token}:
+    get:
+      summary: Get public overlay
+      tags:
+        - Overlays
+      responses:
+        "200":
+          description: Public overlay data
+  /api/visualization/formations:
+    post:
+      summary: Create formation
+      tags:
+        - Visualization
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Formation created
+  /api/visualization/formations/match/{matchId}/team/{teamId}:
+    get:
+      summary: Get formation for match
+      tags:
+        - Visualization
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Formation data
+  /api/visualization/formations/{id}:
+    put:
+      summary: Update formation
+      tags:
+        - Visualization
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Formation updated
+  /api/visualization/annotations:
+    post:
+      summary: Create annotation
+      tags:
+        - Visualization
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Annotation created
+  /api/visualization/annotations/match/{matchId}:
+    get:
+      summary: Get match annotations
+      tags:
+        - Visualization
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of annotations
+  /api/visualization/annotations/{id}:
+    delete:
+      summary: Delete annotation
+      tags:
+        - Visualization
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Deleted
+  /api/public/tournaments:
+    get:
+      summary: Get public tournaments
+      tags:
+        - Public
+      description: Public endpoint - no auth required
+      responses:
+        "200":
+          description: List of public tournaments
+  /api/public/tournaments/{id}:
+    get:
+      summary: Get tournament details
+      tags:
+        - Public
+      responses:
+        "200":
+          description: Tournament details
+  /api/public/matches/{id}/score:
+    get:
+      summary: Get match score (no login)
+      tags:
+        - Public
+      responses:
+        "200":
+          description: Current score
+  /api/public/user/quota:
+    get:
+      summary: Check free match quota
+      tags:
+        - Public
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Quota info
+  /api/public/matches/create:
+    post:
+      summary: Create free match (login required)
+      tags:
+        - Public
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Match created
+  /api/public/plans:
+    get:
+      summary: List available plans (no login)
+      tags:
+        - Public
+      responses:
+        "200":
+          description: List of plans
+  /api/analytics/dashboard/stats:
+    get:
+      summary: Get dashboard statistics
+      tags:
+        - Analytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dashboard stats
+  /api/analytics/tournaments/{id}/stats:
+    get:
+      summary: Get tournament analytics
+      tags:
+        - Analytics
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Tournament stats
+  /api/analytics/matches/{id}/stats:
+    get:
+      summary: Get match analytics
+      tags:
+        - Analytics
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Match stats
+  /api/analytics/teams/{id}/stats:
+    get:
+      summary: Get team analytics
+      tags:
+        - Analytics
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Team stats
+  /api/analytics/players/{id}/stats:
+    get:
+      summary: Get player analytics
+      tags:
+        - Analytics
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Player stats
+  /api/analytics/reports/custom:
+    get:
+      summary: Generate custom report
+      tags:
+        - Analytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          schema:
+            type: string
+        - name: tournament_id
+          in: query
+          schema:
+            type: string
+        - name: export_format
+          in: query
+          schema:
+            type: string
+            enum:
+              - json
+              - csv
+      responses:
+        "200":
+          description: Custom report
+  /api/analytics/leaderboards:
+    get:
+      summary: Get leaderboards
+      tags:
+        - Analytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: tournament_id
+          in: query
+          schema:
+            type: string
+        - name: metric
+          in: query
+          schema:
+            type: string
+            enum:
+              - goals
+              - assists
+              - points
+              - wins
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Leaderboard data
+  /api/audit/logs:
+    get:
+      summary: Get audit logs
+      tags:
+        - Audit
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: start_date
+          in: query
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: action_type
+          in: query
+          schema:
+            type: string
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit logs
+  /api/audit/entity/{type}/{id}/history:
+    get:
+      summary: Get entity history
+      tags:
+        - Audit
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - tournament
+              - team
+              - player
+              - match
+              - organization
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Entity history
+  /api/audit/user/{userId}/activity:
+    get:
+      summary: Get user activity
+      tags:
+        - Audit
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User activity
+  /api/rbac/permissions:
+    get:
+      summary: Get all permissions
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of permissions
+  /api/rbac/permissions/{id}:
+    get:
+      summary: Get permission by ID
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Permission details
+  /api/rbac/roles:
+    get:
+      summary: Get all roles
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          schema:
+            type: string
+        - name: scope
+          in: query
+          schema:
+            type: string
+            enum:
+              - global
+              - organization
+              - tournament
+              - match
+              - overlay
+        - name: is_system
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of roles
+    post:
+      summary: Create custom role
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                scope:
+                  type: string
+                  enum:
+                    - global
+                    - organization
+                    - tournament
+                    - match
+                    - overlay
+                permission_ids:
+                  type: array
+                  items:
+                    type: string
+                organization_id:
+                  type: string
+      responses:
+        "201":
+          description: Role created
+  /api/rbac/roles/{id}:
+    get:
+      summary: Get role by ID
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Role with permissions
+    put:
+      summary: Update role
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Role updated
+    delete:
+      summary: Delete role
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Role deleted
+  /api/rbac/roles/{id}/permissions:
+    post:
+      summary: Add permissions to role
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Permissions added
+  /api/rbac/roles/{id}/permissions/{permId}:
+    delete:
+      summary: Remove permission from role
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Permission removed
+  /api/rbac/users/{userId}/permissions:
+    get:
+      summary: Get user effective permissions
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: organization_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User permissions
+  /api/rbac/users/{userId}/roles:
+    get:
+      summary: Get user roles
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User roles
+    post:
+      summary: Assign role to user
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Role assigned
+  /api/rbac/users/{userId}/roles/{roleId}:
+    delete:
+      summary: Remove role from user
+      tags:
+        - RBAC
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Role removed
+  /api/billing/plans:
+    get:
+      summary: Get available subscription plans
+      tags:
+        - Billing
+      responses:
+        "200":
+          description: List of plans
+  /api/billing/subscriptions:
+    get:
+      summary: Get organization subscription
+      tags:
+        - Billing
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscription details
+    post:
+      summary: Create subscription
+      tags:
+        - Billing
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - organization_id
+                - plan_id
+              properties:
+                organization_id:
+                  type: string
+                plan_id:
+                  type: string
+                payment_method_id:
+                  type: string
+      responses:
+        "201":
+          description: Subscription created
+  /api/billing/subscriptions/{id}:
+    put:
+      summary: Update subscription
+      tags:
+        - Billing
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Subscription updated
+    delete:
+      summary: Cancel subscription
+      tags:
+        - Billing
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Subscription cancelled
+  /api/billing/invoices:
+    get:
+      summary: Get organization invoices
+      tags:
+        - Billing
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - pending
+              - paid
+              - failed
+              - cancelled
+      responses:
+        "200":
+          description: List of invoices
+  /api/billing/invoices/{id}:
+    get:
+      summary: Get invoice details
+      tags:
+        - Billing
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Invoice details
+  /api/billing/usage:
+    get:
+      summary: Get usage statistics
+      tags:
+        - Billing
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organization_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Usage data
+  /api/billing/payment-methods:
+    get:
+      summary: Get payment methods
+      tags:
+        - Billing
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of payment methods
+    post:
+      summary: Add payment method
+      tags:
+        - Billing
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Payment method added
+  /api/billing/payment-methods/{id}:
+    delete:
+      summary: Remove payment method
+      tags:
+        - Billing
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Payment method removed
+  /api/billing/webhook:
+    post:
+      summary: Payment webhook
+      tags:
+        - Billing
+      description: Webhook endpoint for payment provider callbacks
+      responses:
+        "200":
+          description: Webhook processed
+  /api/admin/users:
+    post:
+      summary: Create user (super admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: User created
+  /api/admin/tenants:
+    post:
+      summary: Onboard new tenant with subscription (super admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      description: >-
+        Create a new organization, owner user, and assign a subscription plan.
+
+
+        **Request body:**
+
+        - `org`: Organization details (name, slug, description, contact info,
+        feature flags)
+
+        - `owner`: Owner user details (email, password, first_name, last_name,
+        phone)
+
+        - `subscription`: Subscription config
+          - `plan_id*: `free` | `starter` | `professional` | `enterprise`
+          - `period_months`: Billing period in months (default: 1)
+          - `trial_days`: Free trial days before billing starts (default: 0)
+        - `send_invitation`: Send login credentials to owner (default: true)
+
+
+        **Example:**
+
+        ```json
+
+        {
+          "org": { "name": "Nepal Football Association", "slug": "nfa" },
+          "owner": { "email": "admin@nfa.com", "password": "secure123", "first_name": "Ram" },
+          "subscription": { "plan_id": "starter", "period_months": 12, "trial_days": 14 }
+        }
+
+        ```
+      requestBody:
+        content:
+          application/json:
+            example:
+              org:
+                name: Nepal Football Association
+                slug: nfa
+                description: Official football body
+                contact_email: admin@nfa.com
+              owner:
+                email: admin@nfa.com
+                password: secure123
+                first_name: Ram
+                last_name: Shrestha
+              subscription:
+                plan_id: starter
+                period_months: 12
+                trial_days: 14
+              send_invitation: true
+      responses:
+        "201":
+          description: Tenant onboarded successfully
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  organization:
+                    id: uuid
+                    name: Nepal Football Association
+                    slug: nfa
+                  owner:
+                    id: uuid
+                    email: admin@nfa.com
+                    first_name: Ram
+                  subscription:
+                    plan_id: starter
+                    status: active
+                    trial_days: 14
+                    current_period_start: 2026-05-19T...
+                    current_period_end: 2027-06-02T...
+                  login_url: http://localhost:5173/login
+                  credentials_sent: true
+  /api/admin/tenants/{id}/subscription:
+    post:
+      summary: Assign or change tenant subscription (super admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      description: |-
+        Assign or upgrade/downgrade a tenant's subscription plan.
+
+        **Request body:**
+        - `plan_id*`: `free` | `starter` | `professional` | `enterprise`
+        - `period_months`: Billing period in months (default: 1)
+        - `start_date`: Custom start date (default: now)
+
+        **Example:**
+        ```json
+        { "plan_id": "professional", "period_months": 6 }
+        ```
+      requestBody:
+        content:
+          application/json:
+            example:
+              plan_id: professional
+              period_months: 6
+      responses:
+        "200":
+          description: Subscription assigned
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  id: uuid
+                  plan_id: professional
+                  status: active
+                  current_period_start: 2026-05-19T...
+                  current_period_end: 2026-11-19T...
+  /api/admin/tenants/{id}/subscriptions:
+    get:
+      summary: Get tenant subscription history (super admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Subscription history
+  /api/admin/dashboard:
+    get:
+      summary: Get admin dashboard stats
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard statistics
+  /api/admin/plans:
+    get:
+      summary: List available subscription plans (super admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      description: Get all available plans for tenant onboarding and subscription
+        assignment.
+      responses:
+        "200":
+          description: List of plans
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  - id: free
+                    name: Free
+                    price: 0
+                    interval: month
+                    features:
+                      tournaments: 5
+                      teams: 10
+                      players: 50
+                      matches: 100
+                    is_active: true
+                  - id: starter
+                    name: Starter
+                    price: 9.99
+                    interval: month
+                    features:
+                      tournaments: 20
+                      teams: 50
+                      players: 200
+                      matches: 500
+                    is_active: true
+                  - id: professional
+                    name: Professional
+                    price: 29.99
+                    interval: month
+                    features:
+                      tournaments: 100
+                      teams: 200
+                      players: 1000
+                      matches: 2000
+                    is_active: true
+                  - id: enterprise
+                    name: Enterprise
+                    price: 99.99
+                    interval: month
+                    features:
+                      tournaments: -1
+                      teams: -1
+                      players: -1
+                      matches: -1
+                    is_active: true
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: http://localhost:5173/api
+    description: Production server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT access token. Get it from POST /api/auth/login. Pass as:
+        Authorization: Bearer <token>"
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Validation failed
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+    PaginationParams:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+          description: Page number
+        limit:
+          type: integer
+          example: 20
+          description: Items per page
+        sort:
+          type: string
+          example: created_at
+          description: Sort field
+        order:
+          type: string
+          example: DESC
+          enum:
+            - ASC
+            - DESC
+    PaginatedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            type: object
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            limit:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+    BasketballGameState:
+      type: object
+      properties:
+        match:
+          type: object
+        possession:
+          type: object
+          properties:
+            current_possession_team_id:
+              type: string
+            possession_arrow_team_id:
+              type: string
+        fouls:
+          type: array
+        stats:
+          type: object
+        periods:
+          type: array
+        shotClock:
+          type: integer
+        gameClock:
+          type: integer
+        quarter:
+          type: integer
+        overtimeCount:
+          type: integer
+    BasketballScore:
+      type: object
+      properties:
+        home:
+          type: integer
+          example: 98
+        away:
+          type: integer
+          example: 95
+    BasketballStats:
+      type: object
+      properties:
+        playerStats:
+          type: array
+        teamStats:
+          type: array
+    PossessionState:
+      type: object
+      properties:
+        current_possession_team_id:
+          type: string
+        possession_arrow_team_id:
+          type: string
+        last_possession_event_id:
+          type: string
+    TeamFoulStatus:
+      type: object
+      properties:
+        byQuarter:
+          type: object
+        total:
+          type: integer
+        bonus_status:
+          type: string
+          enum:
+            - none
+            - bonus
+            - double_bonus
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Unauthorized — Invalid or missing JWT token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Forbidden — You are not a member of this organization or lack
+        required permission
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InternalError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+security:
+  - bearerAuth: []
+tags:
+  - name: 🌐 Public Portal
+    description: 🔓 **No login required.** Live scores, tournament browsing,
+      standings, team/player profiles, and search. For viewers and fans.
+  - name: 🔑 Authentication
+    description: 🔓 **No login required.** Register, login, refresh tokens. Used by
+      both public and dashboard users.
+  - name: 🏢 Organizations
+    description: 🔒 **Login + org membership required.** Create/manage
+      organizations, invite members, manage roles. Only for org owners and
+      admins.
+  - name: 🏆 Tournaments
+    description: 🔒 **Login + org membership required.** Create tournaments,
+      generate fixtures (league/knockout), manage progression.
+  - name: 👥 Teams
+    description: 🔒 **Login + org membership required.** Create/manage teams, team
+      registrations for tournaments.
+  - name: 🏃 Players
+    description: 🔒 **Login + org membership required.** Create/manage players,
+      assign to teams.
+  - name: ⚽ Matches
+    description: 🔒 **Login + org membership required.** Match lifecycle (scheduled
+      → live → completed), officials, lineups.
+  - name: 📊 Scoring
+    description: 🔒 **Login + match:score permission required.** Event-driven live
+      scoring. Supports Football, Cricket, Basketball. Undo/reverse events,
+      deterministic replay.
+  - name: 🏅 Standings
+    description: 🔒 **Login + org membership required.** Auto-calculated league
+      tables, head-to-head, snapshots.
+  - name: 🛡️ RBAC
+    description: 🔒 **Login + rbac:manage permission required.** Roles, permissions,
+      staff assignment. Tenant admin creates staff with specific roles and
+      permissions.
+  - name: 💳 Billing
+    description: "🔒 **Login + org admin required.** Plans, subscriptions, invoices,
+      payment methods. Free tier: 5 tournaments per org."
+  - name: 📈 Analytics
+    description: 🔒 **Login + analytics:view permission required.** Usage analytics,
+      event tracking.
+  - name: 📋 Audit
+    description: 🔒 **Login + audit:view permission required.** Audit logs for all actions.
+  - name: 📺 Overlays
+    description: 🔒 **Login + org membership required.** Broadcast overlay
+      templates, live overlays for OBS/web.
+  - name: 📐 Visualization
+    description: 🔒 **Login + org membership required.** Tactical formations, annotations.
+  - name: 🔄 Sync
+    description: 🔒 **Login + org membership required.** Offline sync queue, device
+      tracking, conflict resolution.
+  - name: 🏏 Cricket Scoring
+    description: 🔒 **Login + match:score permission required.** Ball-by-ball
+      scoring, innings, DRS, DLS, super overs, powerplays.
+  - name: 🏀 Basketball Scoring
+    description: 🔒 **Login + match:score permission required.** Possession
+      tracking, shot clock, fouls, free throws, timeouts, jump balls.
