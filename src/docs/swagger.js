@@ -349,9 +349,13 @@ export const addSchema = (name, schema) => {
 const swaggerSetup = (app) => {
   const yamlContent = YAML.stringify(openApiDoc);
 
-  const docsPath = path.join(__dirname, '../docs/openapi.yaml');
-  fs.writeFileSync(docsPath, yamlContent);
-  logger.info('OpenAPI documentation generated');
+  try {
+    const docsPath = path.join(__dirname, '../docs/openapi.yaml');
+    fs.writeFileSync(docsPath, yamlContent);
+    logger.info('OpenAPI documentation generated');
+  } catch (err) {
+    logger.warn('Could not write OpenAPI file (read-only filesystem)', { error: err.message });
+  }
 
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDoc, {
     customCss: '.swagger-ui .topbar { display: none }',
