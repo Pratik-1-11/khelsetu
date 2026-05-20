@@ -5,7 +5,7 @@
 
 import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
-import { CricketScoringService } from './services/CricketScoringService.js';
+import { CricketScoringService } from './services/cricketScoringService.js';
 import { authMiddleware } from '../../core/auth/jwt.js';
 import { asyncHandler, ValidationError } from '../../core/errors/index.js';
 import { addRoute } from '../../docs/swagger.js';

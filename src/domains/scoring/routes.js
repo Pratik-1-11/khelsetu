@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body, param, validationResult } from 'express-validator';
 import scoringService from './services/scoringService.js';
-import { CricketScoringService } from './services/CricketScoringService.js';
+import { CricketScoringService } from './services/cricketScoringService.js';
 import cricketRoutes from './cricketRoutes.js';
 import footballRoutes from './footballRoutes.js';
 import { authMiddleware } from '../../core/auth/jwt.js';
