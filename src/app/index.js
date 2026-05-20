@@ -101,11 +101,11 @@ app.use(errorHandler);
 
 const isServerless = process.env.VERCEL;
 
+db.createPool();
+logger.info('PostgreSQL pool initialized');
+
 const startServer = async () => {
   try {
-    db.createPool();
-    logger.info('PostgreSQL pool initialized');
-
     if (!isServerless) {
       ws.initializeWebSocket(server);
     } else {

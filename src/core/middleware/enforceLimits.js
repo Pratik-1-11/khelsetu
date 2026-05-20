@@ -13,12 +13,12 @@ export function enforceLimits(resourceType) {
     const orgId = req.body.organization_id;
     if (!orgId) return next();
 
-    const [sub] = await db.query(
+    const subResult = await db.query(
       `SELECT plan_id FROM subscriptions WHERE organization_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`,
       [orgId]
     );
 
-    const planId = sub[0]?.plan_id || 'free';
+    const planId = subResult.rows[0]?.plan_id || 'free';
     const plan = PLANS.find(p => p.id === planId);
     if (!plan) return next();
 
@@ -26,30 +26,35 @@ export function enforceLimits(resourceType) {
     if (limit === -1) return next();
 
     let count = 0;
+    let countResult;
     switch (resourceType) {
       case 'tournaments':
-        [[{ count }]] = await db.query(
+        countResult = await db.query(
           `SELECT COUNT(*) as count FROM tournaments WHERE organization_id = ? AND deleted_at IS NULL`,
           [orgId]
         );
+        count = parseInt(countResult.rows[0]?.count, 10) || 0;
         break;
       case 'teams':
-        [[{ count }]] = await db.query(
+        countResult = await db.query(
           `SELECT COUNT(*) as count FROM teams WHERE organization_id = ? AND deleted_at IS NULL`,
           [orgId]
         );
+        count = parseInt(countResult.rows[0]?.count, 10) || 0;
         break;
       case 'players':
-        [[{ count }]] = await db.query(
+        countResult = await db.query(
           `SELECT COUNT(*) as count FROM players WHERE organization_id = ? AND deleted_at IS NULL`,
           [orgId]
         );
+        count = parseInt(countResult.rows[0]?.count, 10) || 0;
         break;
       case 'matches':
-        [[{ count }]] = await db.query(
+        countResult = await db.query(
           `SELECT COUNT(*) as count FROM matches m JOIN tournaments t ON m.tournament_id = t.id WHERE t.organization_id = ? AND m.deleted_at IS NULL`,
           [orgId]
         );
+        count = parseInt(countResult.rows[0]?.count, 10) || 0;
         break;
       default:
         return next();

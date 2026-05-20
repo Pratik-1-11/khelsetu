@@ -9,8 +9,6 @@ dotenv.config({ path: path.join(projectRoot, '.env') });
 
 const requiredEnvVars = [
   'NODE_ENV',
-  'PORT',
-  'SOCKET_PORT',
   'DATABASE_URL',
   'JWT_SECRET',
   'JWT_REFRESH_SECRET',
