@@ -41,6 +41,8 @@ import { auditMiddleware } from '../core/middleware/audit.js';
 const app = express();
 const server = createServer(app);
 
+app.set('trust proxy', true);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
