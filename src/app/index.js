@@ -63,6 +63,10 @@ app.use(requestLogger);
 
 app.use(resolveTenant);
 
+app.get('/', (req, res) => {
+  res.json({ service: 'KhelSetu API', version: '1.0.0', status: 'running' });
+});
+
 app.get('/health', async (req, res) => {
   const dbHealth = await db.healthCheck();
   res.json({

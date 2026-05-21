@@ -12,8 +12,12 @@
       "dest": "src/app/index.js"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
+  "functions": {
+    "src/app/index.js": {
+      "runtime": "nodejs20.x",
+      "memory": 512,
+      "maxDuration": 30
+    }
   },
   "regions": ["sin1"]
 }
