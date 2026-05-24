@@ -6,12 +6,21 @@ let pool = null;
 
 const isServerless = process.env.VERCEL;
 
+const stripSslMode = (url) => {
+  return url.replace(/(\?|&)sslmode=[^&]+/g, '').replace(/[?&]$/, '');
+};
+
 export const createPool = () => {
   if (pool) return pool;
 
+  const rawUrl = env.database.url;
+  const connectionString = stripSslMode(rawUrl);
+  const isRailwayInternal = connectionString.includes('railway') && !connectionString.includes('proxy.rlwy');
+  const needsSsl = rawUrl.includes('sslmode=') || !isRailwayInternal;
+
   pool = new Pool({
-    connectionString: env.database.url,
-    ssl: { rejectUnauthorized: false },
+    connectionString,
+    ssl: needsSsl ? { rejectUnauthorized: false } : false,
     min: isServerless ? 0 : env.database.pool.min,
     max: isServerless ? 1 : env.database.pool.max,
     idleTimeoutMillis: isServerless ? 0 : env.database.pool.idleTimeout,
