@@ -357,6 +357,19 @@ const swaggerSetup = (app) => {
     logger.warn('Could not write OpenAPI file (read-only filesystem)', { error: err.message });
   }
 
+  const getServers = (req) => {
+    const host = req ? `${req.protocol}://${req.get('host')}` : `http://localhost:${env.port}`;
+    return [
+      { url: host, description: 'Current server' },
+      { url: `http://localhost:${env.port}`, description: 'Local development' },
+    ];
+  };
+
+  app.use('/api-docs', (req, res, next) => {
+    openApiDoc.servers = getServers(req);
+    next();
+  });
+
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDoc, {
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: env.swagger.title,
@@ -365,12 +378,13 @@ const swaggerSetup = (app) => {
   }));
 
   app.get('/api-docs.json', (req, res) => {
+    openApiDoc.servers = getServers(req);
     res.json(openApiDoc);
   });
 
   app.get('/api-docs.yaml', (req, res) => {
     res.set('Content-Type', 'text/yaml');
-    res.send(yamlContent);
+    res.send(YAML.stringify(openApiDoc));
   });
 };
 
