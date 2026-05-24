@@ -4,9 +4,9 @@ Production-grade realtime multi-tenant sports tournament management platform for
 
 ## Tech Stack
 
-- **Runtime**: Node.js 18+
+- **Runtime**: Node.js 20+
 - **Framework**: Express.js
-- **Database**: MySQL 8.0
+- **Database**: PostgreSQL (hosted on Railway)
 - **Real-time**: Socket.IO
 - **Auth**: JWT with refresh tokens
 - **API Docs**: Swagger/OpenAPI
@@ -14,8 +14,8 @@ Production-grade realtime multi-tenant sports tournament management platform for
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- MySQL 8.0
+- Node.js 20+
+- PostgreSQL (or use Railway PostgreSQL)
 
 ### Installation
 
@@ -26,13 +26,13 @@ npm install
 # Copy environment file
 cp .env.example .env
 
-# Edit .env with your MySQL credentials
+# Edit .env with your PostgreSQL credentials
 ```
 
 ### Database Setup
 
 ```bash
-# Run migrations
+# Run PostgreSQL migrations
 npm run migrate
 
 # Seed base data (sports, permissions, roles)
@@ -43,17 +43,10 @@ npm run seed
 
 ```bash
 # Start server
-npm start
+npm run dev
 # Server: http://localhost:3000
 # Swagger: http://localhost:3000/api-docs
 # Socket.IO: ws://localhost:3001
-```
-
-### Docker
-
-```bash
-# Start with MySQL
-docker-compose up --build
 ```
 
 ## API Endpoints
@@ -67,7 +60,7 @@ docker-compose up --build
 | Teams | CRUD, players |
 | Players | CRUD, team membership |
 | Matches | CRUD, start/end, officials |
-| Scoring | events, undo, history, snapshots |
+| Scoring | events, undo, history, snapshots (Football, Cricket, Basketball) |
 | Sync | queue, offline support |
 | Standings | calculation, snapshots |
 | Notifications | real-time via Socket.IO |
@@ -90,28 +83,24 @@ NODE_ENV=development
 PORT=3000
 SOCKET_PORT=3001
 
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=password
-MYSQL_DATABASE=khelsetu
+DATABASE_URL=postgresql://user:password@host:5432/db
 
 JWT_SECRET=your-secret
 JWT_REFRESH_SECRET=your-refresh-secret
+CLIENT_URL=http://localhost:5173
 ```
 
-## Deployment
+## Deployment (Railway)
 
-### Vercel
+This project is designed for Railway.app deployment:
+
 ```bash
-vercel deploy
+# Push to GitHub, then connect repo in Railway dashboard
+# Railway auto-detects Node.js and runs npm start
+# Set environment variables in Railway dashboard
 ```
 
-### Docker
-```bash
-docker build -t khelsetu-backend .
-docker run -p 3000:3000 khelsetu-backend
-```
+The database and app can both run on Railway for minimal latency.
 
 ## Socket.IO Events
 
