@@ -1,17 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "src/app/index.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "src/app/index.js"
-    }
-  ],
   "functions": {
     "src/app/index.js": {
       "runtime": "nodejs20.x",
@@ -19,5 +7,11 @@
       "maxDuration": 30
     }
   },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/app/index.js"
+    }
+  ],
   "regions": ["sin1"]
 }
