@@ -132,49 +132,50 @@ CREATE TRIGGER trg_payment_methods_updated_at
 -- SEED DEFAULT PERMISSIONS
 -- ========================================
 
-INSERT INTO permissions (id, name, description, category) VALUES
-    ('perm_tournament_read', 'tournament:read', 'View tournament details', 'tournaments'),
-    ('perm_tournament_create', 'tournament:create', 'Create tournaments', 'tournaments'),
-    ('perm_tournament_update', 'tournament:update', 'Update tournaments', 'tournaments'),
-    ('perm_tournament_delete', 'tournament:delete', 'Delete tournaments', 'tournaments'),
-    ('perm_team_read', 'team:read', 'View team details', 'teams'),
-    ('perm_team_create', 'team:create', 'Create teams', 'teams'),
-    ('perm_team_update', 'team:update', 'Update teams', 'teams'),
-    ('perm_team_delete', 'team:delete', 'Delete teams', 'teams'),
-    ('perm_player_read', 'player:read', 'View player details', 'players'),
-    ('perm_player_create', 'player:create', 'Create players', 'players'),
-    ('perm_player_update', 'player:update', 'Update players', 'players'),
-    ('perm_player_delete', 'player:delete', 'Delete players', 'players'),
-    ('perm_match_read', 'match:read', 'View match details', 'matches'),
-    ('perm_match_create', 'match:create', 'Create matches', 'matches'),
-    ('perm_match_update', 'match:update', 'Update matches', 'matches'),
-    ('perm_match_delete', 'match:delete', 'Delete matches', 'matches'),
-    ('perm_match_score', 'match:score', 'Update match scores', 'matches'),
-    ('perm_analytics_view', 'analytics:view', 'View analytics', 'analytics'),
-    ('perm_audit_view', 'audit:view', 'View audit logs', 'audit'),
-    ('perm_billing_manage', 'billing:manage', 'Manage billing', 'billing'),
-    ('perm_org_manage', 'org:manage', 'Manage organization', 'organization'),
-    ('perm_org_members', 'org:members', 'Manage organization members', 'organization'),
-    ('perm_rbac_manage', 'rbac:manage', 'Manage roles and permissions', 'rbac')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
+INSERT INTO permissions (name, description, category) VALUES
+    ('tournament:read', 'View tournament details', 'tournaments'),
+    ('tournament:create', 'Create tournaments', 'tournaments'),
+    ('tournament:update', 'Update tournaments', 'tournaments'),
+    ('tournament:delete', 'Delete tournaments', 'tournaments'),
+    ('team:read', 'View team details', 'teams'),
+    ('team:create', 'Create teams', 'teams'),
+    ('team:update', 'Update teams', 'teams'),
+    ('team:delete', 'Delete teams', 'teams'),
+    ('player:read', 'View player details', 'players'),
+    ('player:create', 'Create players', 'players'),
+    ('player:update', 'Update players', 'players'),
+    ('player:delete', 'Delete players', 'players'),
+    ('match:read', 'View match details', 'matches'),
+    ('match:create', 'Create matches', 'matches'),
+    ('match:update', 'Update matches', 'matches'),
+    ('match:delete', 'Delete matches', 'matches'),
+    ('match:score', 'Update match scores', 'matches'),
+    ('analytics:view', 'View analytics', 'analytics'),
+    ('audit:view', 'View audit logs', 'audit'),
+    ('billing:manage', 'Manage billing', 'billing'),
+    ('org:manage', 'Manage organization', 'organization'),
+    ('org:members', 'Manage organization members', 'organization'),
+    ('rbac:manage', 'Manage roles and permissions', 'rbac')
+ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
 
 -- ========================================
 -- SEED DEFAULT ROLES
 -- ========================================
 
-INSERT INTO roles (id, name, description, scope, is_system) VALUES
-    ('role_super_admin', 'Super Admin', 'Full system access', 'global', TRUE),
-    ('role_org_admin', 'Organization Admin', 'Full organization access', 'organization', TRUE),
-    ('role_org_member', 'Organization Member', 'Standard organization member', 'organization', TRUE),
-    ('role_org_viewer', 'Organization Viewer', 'Read-only organization access', 'organization', TRUE),
-    ('role_tournament_admin', 'Tournament Admin', 'Manage specific tournament', 'tournament', TRUE),
-    ('role_match_official', 'Match Official', 'Official for matches', 'match', TRUE)
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
+INSERT INTO roles (name, description, scope, is_system) VALUES
+    ('Super Admin', 'Full system access', 'global', TRUE),
+    ('Organization Admin', 'Full organization access', 'organization', TRUE),
+    ('Organization Member', 'Standard organization member', 'organization', TRUE),
+    ('Organization Viewer', 'Read-only organization access', 'organization', TRUE),
+    ('Tournament Admin', 'Manage specific tournament', 'tournament', TRUE),
+    ('Match Official', 'Official for matches', 'match', TRUE)
+ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description;
 
 -- ========================================
 -- SEED ROLE-PERMISSION MAPPINGS FOR ORG_ADMIN
 -- ========================================
 
 INSERT INTO role_permissions (id, role_id, permission_id)
-SELECT gen_random_uuid(), 'role_org_admin', p.id FROM permissions p
+SELECT gen_random_uuid(), r.id, p.id FROM permissions p
+CROSS JOIN roles r WHERE r.name = 'Organization Admin'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
