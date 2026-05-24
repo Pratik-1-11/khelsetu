@@ -11,18 +11,29 @@ import { enforceLimits } from './enforceLimits.js';
 export { requirePermission, requireAnyPermission, requireAllPermissions, requireRole, requireSuperAdmin } from './requirePermission.js';
 export { enforceLimits } from './enforceLimits.js';
 
-export const securityMiddleware = helmet({
+const cspMiddleware = helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", "ws:", "wss:"]
+      connectSrc: ["'self'", "ws:", "wss:", "http://localhost:*", "https://*.up.railway.app"]
     }
   },
   crossOriginEmbedderPolicy: false
 });
+
+export const securityMiddleware = (req, res, next) => {
+  if (req.path.startsWith('/api-docs')) {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src *; font-src 'self' data:"
+    );
+    return next();
+  }
+  return cspMiddleware(req, res, next);
+};
 
 export const corsMiddleware = cors({
   origin: (origin, callback) => {
