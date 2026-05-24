@@ -9,9 +9,18 @@ import logger from '../../core/logger/index.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.join(__dirname, 'pg');
 
+const stripSslMode = (url) => {
+  return url.replace(/(\?|&)sslmode=[^&]+/g, '').replace(/[?&]$/, '');
+};
+
+const rawUrl = env.database.url;
+const connectionString = stripSslMode(rawUrl);
+const isRailwayInternal = connectionString.includes('railway') && !connectionString.includes('proxy.rlwy');
+const needsSsl = rawUrl.includes('sslmode=') || !isRailwayInternal;
+
 const pool = new Pool({
-  connectionString: env.database.url,
-  ssl: env.nodeEnv === 'production' ? { rejectUnauthorized: false } : false,
+  connectionString,
+  ssl: needsSsl ? { rejectUnauthorized: false } : false,
 });
 
 function hashFile(filePath) {
